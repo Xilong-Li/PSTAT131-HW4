@@ -1,0 +1,150 @@
+---
+title: "PSTAT131 - HW4"
+author: "Xilong Li (3467966)"
+date: '2022-05-02'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(discrim)
+library(poissonreg)
+library(corrr)
+library(klaR) # for naive bayes
+
+tidymodels_prefer()
+Titanic <- read.csv("titanic.csv")
+Titanic$survived <- factor(Titanic$survived,levels = c("Yes","No"))
+Titanic$pclass <- as.character(Titanic$pclass)
+Titanic$pclass <- as.factor(Titanic$pclass)
+
+titan_recipe <- recipe(survived ~ 
+                         pclass +
+                         sex + 
+                         age + 
+                         sib_sp + 
+                         parch + 
+                         fare,
+                       data = titan_train) %>% 
+  step_impute_linear(age) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_interact(~ starts_with("sex"):fare) %>% 
+  step_interact(~ age:fare)
+  
+titan_recipe
+```
+
+##Question 1:
+```{r}
+set.seed(2216)
+
+titan_split <- initial_split(Titanic, prop = 0.80,
+                                strata = survived)
+titan_train <- training(titan_split)
+titan_test <- testing(titan_split)
+
+titan_split
+
+dim(titan_train)
+```
+
+##Question 2:
+```{r}
+titan_folds <- vfold_cv(titan_train, v = 10)
+titan_folds
+```
+
+##Question 3:
+1) We use k-fold cross-validation so that we can hold out a subset of the training observations from the fitting process, and apply the learned model to those held out observations.    
+2) We use k-fold cross-validation method so that it results in a less biased model, "because it ensures that every observation from the original dataset has the chance of appearing in training and test set." (cited from: https://towardsdatascience.com/why-and-how-to-cross-validate-a-model-d6424b45261f#:~:text=K-Folds%20Cross%20Validation%3A&text=Because%20it%20ensures%20that%20every,have%20a%20limited%20input%20data.)
+3) If we use the entire training dataset, we would use the training-validation-test approach.
+
+##Question 4:
+```{r}
+log_reg <- logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+
+log_wkflow <- workflow() %>% 
+  add_model(log_reg) %>% 
+  add_recipe(titan_recipe)
+```
+```{r}
+lda_mod <- discrim_linear() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+lda_wkflow <- workflow() %>% 
+  add_model(lda_mod) %>% 
+  add_recipe(titan_recipe)
+```
+```{r}
+qda_mod <- discrim_quad() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+qda_wkflow <- workflow() %>% 
+  add_model(qda_mod) %>% 
+  add_recipe(titan_recipe)
+```
+Therefore, 30 models in total will be fitted to the data, because there are 10 folds for each of 3 different models.
+
+##Question 5:
+```{r}
+# Fit the logistic regression model
+log_fit <- 
+  log_wkflow %>% 
+  fit_resamples(titan_folds)
+
+# Fit the LDA model
+lda_fit <- 
+  lda_wkflow %>% 
+  fit_resamples(titan_folds)
+
+# Fit the QDA model
+qda_fit <- 
+  qda_wkflow %>% 
+  fit_resamples(titan_folds)
+```
+
+
+##Question 6:
+```{r}
+# See the result of logistic regression model
+collect_metrics(log_fit)
+
+# See the result of LDA model
+collect_metrics(lda_fit)
+
+# See the result of QDA model
+collect_metrics(qda_fit)
+```
+
+##Question 7:
+Since the logistic regression model has the highest accuracy, I will use the logistic regression model as my final model.
+
+```{r}
+final_fit <- fit(log_wkflow, titan_train)
+
+predict(final_fit, new_data = titan_test, type = "prob")
+
+augment(final_fit, new_data = titan_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class) 
+
+multi_metric <- metric_set(accuracy, sensitivity, specificity)
+
+augment(final_fit, new_data = titan_test) %>%
+  multi_metric(truth = survived, estimate = .pred_class)
+
+augment(final_fit, new_data = titan_test) %>%
+  roc_curve(survived, .pred_No) %>%
+  autoplot()
+```
+
+
+##Question 8:
