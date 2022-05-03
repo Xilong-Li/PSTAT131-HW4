@@ -2,7 +2,9 @@
 title: "PSTAT131 - HW4"
 author: "Xilong Li (3467966)"
 date: '2022-05-02'
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +24,20 @@ Titanic <- read.csv("titanic.csv")
 Titanic$survived <- factor(Titanic$survived,levels = c("Yes","No"))
 Titanic$pclass <- as.character(Titanic$pclass)
 Titanic$pclass <- as.factor(Titanic$pclass)
+```
+
+##Question 1:
+```{r}
+set.seed(2216)
+
+titan_split <- initial_split(Titanic, prop = 0.80,
+                                strata = survived)
+titan_train <- training(titan_split)
+titan_test <- testing(titan_split)
+
+titan_split
+
+dim(titan_train)
 
 titan_recipe <- recipe(survived ~ 
                          pclass +
@@ -37,20 +53,6 @@ titan_recipe <- recipe(survived ~
   step_interact(~ age:fare)
   
 titan_recipe
-```
-
-##Question 1:
-```{r}
-set.seed(2216)
-
-titan_split <- initial_split(Titanic, prop = 0.80,
-                                strata = survived)
-titan_train <- training(titan_split)
-titan_test <- testing(titan_split)
-
-titan_split
-
-dim(titan_train)
 ```
 
 ##Question 2:
@@ -130,6 +132,9 @@ Since the logistic regression model has the highest accuracy, I will use the log
 
 ```{r}
 final_fit <- fit(log_wkflow, titan_train)
+```
+##Question 8:
+```{r}
 
 predict(final_fit, new_data = titan_test, type = "prob")
 
@@ -145,6 +150,5 @@ augment(final_fit, new_data = titan_test) %>%
   roc_curve(survived, .pred_No) %>%
   autoplot()
 ```
-
-
-##Question 8:
+Therefore, as the accuracy shown above, the accuracy generated based on the entire training dataset is very close to the average accuracy generated based on the folds.       
+Thus, overall, the model fits well in predicting the response parameter "survived".
