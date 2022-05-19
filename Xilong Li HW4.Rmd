@@ -3,8 +3,8 @@ title: "PSTAT131 - HW4"
 author: "Xilong Li (3467966)"
 date: '2022-05-02'
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(MASS)
 library(tidyverse)
 library(tidymodels)
 library(discrim)
@@ -62,10 +63,11 @@ titan_folds
 ```
 
 ##Question 3:
-1) We use k-fold cross-validation so that we can hold out a subset of the training observations from the fitting process, and apply the learned model to those held out observations.    
-2) We use k-fold cross-validation method so that it results in a less biased model, "because it ensures that every observation from the original dataset has the chance of appearing in training and test set." (cited from: https://towardsdatascience.com/why-and-how-to-cross-validate-a-model-d6424b45261f#:~:text=K-Folds%20Cross%20Validation%3A&text=Because%20it%20ensures%20that%20every,have%20a%20limited%20input%20data.)
-3) If we use the entire training dataset, we would use the boot approach.
-strap
+1) k-fold means that we randomly divide the data into k subsets or folds of equal sizes
+2) We use k-fold cross-validation so that we can hold out a subset of the training observations from the fitting process, and apply the learned model to those held out observations.    
+3) We use k-fold cross-validation method so that it results in a less biased model, "because it ensures that every observation from the original dataset has the chance of appearing in training and test set." (cited from: https://towardsdatascience.com/why-and-how-to-cross-validate-a-model-d6424b45261f#:~:text=K-Folds%20Cross%20Validation%3A&text=Because%20it%20ensures%20that%20every,have%20a%20limited%20input%20data.)
+4) If we use the entire training dataset, we would use the boot approach. strap
+
 ##Question 4:
 ```{r}
 log_reg <- logistic_reg() %>% 
@@ -136,7 +138,7 @@ final_fit <- fit(log_wkflow, titan_train)
 ##Question 8:
 ```{r}
 
-predict(final_fit, new_data = titan_test, type = "prob")
+predict(final_fit, new_data = titan_test, type = "class")
 
 augment(final_fit, new_data = titan_test) %>%
   conf_mat(truth = survived, estimate = .pred_class) 
@@ -150,5 +152,15 @@ augment(final_fit, new_data = titan_test) %>%
   roc_curve(survived, .pred_No) %>%
   autoplot()
 ```
+```{r}
+# method 2:
+final_fit2 <- fit(final_fit, titan_test)
+titanic_train_res <- predict(final_fit2, new_data = titan_test, type = "class") %>% 
+  bind_cols(titan_test$survived) %>% 
+  accuracy(truth = titan_test$survived, .pred_class)
+
+titanic_train_res
+```
+
 Therefore, as the accuracy shown above, the accuracy generated based on the entire training dataset is very close to the average accuracy generated based on the folds.       
 Thus, overall, the model fits well in predicting the response parameter "survived".
